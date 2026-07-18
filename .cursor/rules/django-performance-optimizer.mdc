@@ -1,0 +1,7 @@
+---
+description: Write and audit maximally performant Django/DRF code — measure first, then fix. Defers security to secure-code-auditor.
+globs: ["**/*.py"]
+alwaysApply: false
+---
+
+When writing or reviewing Django / Django REST Framework code where speed, query count, latency, memory, or scalability is in scope, apply this skill in one of two modes: **write-time** (apply performance defaults while generating code — eager loading, DB-side aggregation, indexed filters, pagination, `bulk_*`, read-optimized serializers — only where the access pattern warrants) and **review-time** (measure first — prove the bottleneck with query counts, timings, `explain()`, and hot-loop complexity — then apply the minimal correct fix and state the expected before/after). Never optimize a non-bottleneck; once a real problem is proven, fix it, don't just flag it. Never trade security for performance — all security judgment defers to `secure-code-auditor`. Prefer built-ins; suggest libraries only for a measured bottleneck, never mandate them. The canonical, complete instructions live in `SKILL.md` and `references/`; the always-on context layer is `AGENTS.md`. Read those rather than relying on this summary.
