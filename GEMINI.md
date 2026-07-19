@@ -34,8 +34,12 @@ Prefer Django/DRF built-ins and the stdlib. Only *suggest* a third-party library
 | Hot-loop complexity, accidental O(n²), data structures | `references/algorithms-and-hot-loops.md` |
 | Profiling — query counting, Debug Toolbar, Silk, `nplusone`, `explain()`, py-spy, cProfile | `references/profiling-and-tooling.md` |
 | Middleware, templates, static/media, transactions, signals, migrations, settings | `references/settings-and-runtime.md` |
+| Indexing depth, full-text & trigram search, `JSONField`, `pg_stat_statements` | `references/indexing-and-search.md` |
+| Locking & concurrency — `select_for_update`, `skip_locked`, optimistic/pessimistic, isolation levels | `references/concurrency-and-locking.md` |
+| Data at scale — replica routing, partitioning, materialized views, boundary hand-offs | `references/data-at-scale.md` |
+| Rate limiting, backpressure, load shedding, circuit breakers | `references/rate-limiting-and-backpressure.md` |
 | Library suggestions + health/supply-chain checks | `references/library-policy.md` |
 
 ## Version baseline
 
-Django 6.0.7 / 5.2.16 LTS; DRF 3.17.1; Python 3.14 (as of 18 Jul 2026). The 6.0 series is supported through Apr 30 2027; 5.2 LTS through Apr 30 2028. Advice targets 6.0 and flags where 5.2 differs (notably native connection pooling under ASGI).
+Django 6.0.7 / 5.2.16 LTS; DRF 3.17.1; Python 3.14; Celery 5.6.3 (as of 19 Jul 2026). The 6.0 series is supported through Apr 30 2027; 5.2 LTS through Apr 30 2028. Advice targets 6.0 and flags where 5.2 differs (notably native connection pooling under ASGI). Django 6.1 is in beta (6.1b1, expected Aug 2026); its perf-relevant features (ORM fetch modes, DB-level `on_delete`) are flagged where noted as not yet shipped.

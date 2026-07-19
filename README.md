@@ -16,6 +16,9 @@ It is built on two rules. **Measure first, then fix:** every performance claim i
 - Picks the right pagination — cursor vs offset — by access pattern.
 - Caches deliberately, with correct invalidation and stampede protection.
 - Gets async, connections, and pooling right — `CONN_MAX_AGE`, native psycopg3 pooling, PgBouncer.
+- Handles concurrency correctly — `select_for_update`/`skip_locked`, optimistic vs pessimistic locking, and transaction isolation.
+- Makes PostgreSQL find data fast — covering/BRIN/functional/partial indexing, trigram and full-text search, and `JSONField` GIN indexing.
+- Reaches for scale-out — replica routing, partitioning, materialized views — only when a measured number warrants it.
 - Decides offload-vs-optimize instead of hiding a bad query behind a queue.
 - Fixes accidental O(n²) hot loops with the right data structure.
 - Applies write-time performance defaults when generating code, so it's fast the first time.
@@ -28,7 +31,7 @@ Claude (primary), plus Codex, Cursor, and Gemini CLI. Claude, Codex, and Cursor 
 
 ## Version baseline
 
-Kept current: **Django 6.0.7 / 5.2.16 LTS; DRF 3.17.1; Python 3.14** (as of 18 Jul 2026). The Django 6.0 series receives security and data-loss fixes through **April 30, 2027**; the 5.2 LTS series through **April 30, 2028**. Advice targets Django 6.0 and flags where 5.2 differs — notably native connection pooling under ASGI, which 6.0 supports via `AsyncConnectionPool` but 5.1/5.2 advise against (use PgBouncer there).
+Kept current: **Django 6.0.7 / 5.2.16 LTS; DRF 3.17.1; Python 3.14; Celery 5.6.3** (as of 19 Jul 2026). The Django 6.0 series receives security and data-loss fixes through **April 30, 2027**; the 5.2 LTS series through **April 30, 2028**. Advice targets Django 6.0 and flags where 5.2 differs — notably native connection pooling under ASGI, which 6.0 supports via `AsyncConnectionPool` but 5.1/5.2 advise against (use PgBouncer there). Django 6.1 is in beta (6.1b1, expected Aug 2026); its performance-relevant features (ORM fetch modes, database-level `on_delete`) are flagged where relevant as not yet shipped.
 
 ## Install
 
@@ -136,6 +139,10 @@ django-performance-optimizer/
 │   ├── algorithms-and-hot-loops.md
 │   ├── profiling-and-tooling.md
 │   ├── settings-and-runtime.md
+│   ├── concurrency-and-locking.md
+│   ├── indexing-and-search.md
+│   ├── data-at-scale.md
+│   ├── rate-limiting-and-backpressure.md
 │   └── library-policy.md
 ├── README.md
 ├── LICENSE

@@ -5,14 +5,14 @@ license: MIT
 allowed-tools: Read, Grep, Glob, Edit, Write
 metadata:
   author: n-shadloo
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # django-performance-optimizer
 
 A Django performance skill. It writes fast Django/DRF code by default and diagnoses-then-fixes slow existing code. The deep specialty is Django and Django REST Framework; underneath sits a thin, genuinely transferable layer (algorithmic complexity, general caching and invalidation principles) useful to any backend. Its canonical content is reused by other agents (Codex, Cursor, Gemini CLI) via `AGENTS.md`, with Claude as the primary integration.
 
-Version baseline is kept current (Django 6.0.7 / 5.2.16 LTS; DRF 3.17.1; Python 3.14, as of 18 Jul 2026). The Django 6.0 series receives security and data-loss fixes through April 30, 2027; the 5.2 LTS series through April 30, 2028. Advice targets Django 6.0 and flags where 5.2 LTS differs (notably native connection pooling under ASGI).
+Version baseline is kept current (Django 6.0.7 / 5.2.16 LTS; DRF 3.17.1; Python 3.14; Celery 5.6.3, as of 19 Jul 2026). The Django 6.0 series receives security and data-loss fixes through April 30, 2027; the 5.2 LTS series through April 30, 2028. Advice targets Django 6.0 and flags where 5.2 LTS differs (notably native connection pooling under ASGI). Django 6.1 is in beta (6.1b1, expected Aug 2026); its performance-relevant features (ORM fetch modes, database-level `on_delete`) are noted where relevant as coming in 6.1, not shipped.
 
 ## Governing philosophy — measure first, then fix
 
@@ -44,6 +44,10 @@ Progressive disclosure: load only the file relevant to the concern in front of y
 | Hot-loop complexity, accidental O(n²), data structures (the transferable layer) | `references/algorithms-and-hot-loops.md` |
 | Measurement/profiling — query counting, Debug Toolbar, Silk, `nplusone`, `explain()`/EXPLAIN ANALYZE, py-spy, cProfile (the measure-first entry point) | `references/profiling-and-tooling.md` |
 | Middleware, template rendering, static/media, transactions/atomicity, signals, migrations, performance-relevant settings | `references/settings-and-runtime.md` |
+| Indexing depth (composite/covering/partial/functional/BRIN), full-text & trigram search, `JSONField` performance, `pg_stat_statements`, why the planner ignores an index | `references/indexing-and-search.md` |
+| Locking & concurrency — `select_for_update`, `skip_locked` queue pattern, optimistic vs pessimistic, deadlocks, transaction isolation levels | `references/concurrency-and-locking.md` |
+| Data at scale — read/write splitting & replica routing, table partitioning, sharding trade-offs, materialized views & rollups, boundary hand-offs (K8s, cost, GraphQL) | `references/data-at-scale.md` |
+| Rate limiting (DRF throttling), backpressure, load shedding via timeouts, circuit breakers, graceful degradation | `references/rate-limiting-and-backpressure.md` |
 | Third-party library suggestions + health/supply-chain checks | `references/library-policy.md` |
 
 ## Mode selection
