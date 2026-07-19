@@ -76,7 +76,7 @@ Don't reuse the heavy detail serializer for the list view.
       ordering = ("-created_at", "id")     # tiebreaker for stable ordering
   ```
 
-  Recommend cursor pagination for feeds, timelines, and large listings. Keep offset pagination for small datasets or admin UIs that need page jumps / total counts. **Index every field in the ordering tuple.**
+  Recommend cursor pagination for feeds, timelines, and large listings. Keep offset pagination for small datasets or admin UIs that need page jumps / total counts. **Index every field in the ordering tuple.** `CursorPagination` is keyset pagination underneath — a `WHERE (created_at, id) < (:last_created, :last_id) ORDER BY … LIMIT n` seek, which is why it stays fixed-time regardless of depth. For a non-DRF endpoint, implement that seek by hand rather than `OFFSET`.
 - **Never** ship an unpaginated list endpoint, and never materialize a huge queryset into a `list`.
 - **DRF 3.17 note:** async pagination helpers exist in the current stack — use them from async views rather than wrapping sync pagination.
 

@@ -58,6 +58,21 @@ Deterministic function-level (`cProfile`) and line-level (`line_profiler`) profi
 
 Sentry / Scout / etc. for continuous production monitoring of latency and slow transactions. Suggestion only — verify health, cost, and data-handling before adopting; defer the security/privacy judgment to `secure-code-auditor`.
 
+## Production observability & SLOs
+
+Measure-first at production scale — tie every optimization to a real production number.
+
+- **`pg_stat_statements`** — the highest-value production diagnostic. Enable via `shared_preload_libraries`, then read it sorted by `total_exec_time` / `mean_exec_time` / `calls` to rank the queries actually costing time. `pg_stat_statements_reset()` before a measurement window. This is the production analog of query counting (see `indexing-and-search.md`).
+- **Slow-query log** — set `log_min_duration_statement` (e.g. `250ms`) to capture slow statements with parameters.
+- **Tracing (OpenTelemetry)** — `opentelemetry-instrumentation-django` auto-instruments the request cycle, ORM, templates, and cache into spans; pair with `opentelemetry-instrumentation-psycopg` for query spans. Suggestion only — verify health (see `library-policy.md`).
+- **SLOs on percentiles, not averages** — track **p50/p95/p99** latency and error rate; a good p50 hides a bad tail. Set a target and alert on the percentile.
+
+## Load & regression testing
+
+- **`assertNumQueries` as a CI guardrail** — the cheapest, most Django-native regression gate. Wrap hot endpoints in `with self.assertNumQueries(N):` so an accidental N+1 **fails the build**. Make it standard on list/detail endpoints.
+- **Load tools** — reproduce production load before you ship: **Locust** (behavior scripted in Python, distributed master/worker) or **k6** (JS/TS scripts, single binary, CLI thresholds like `p(95)<500` that fail CI). Suggestions — see `library-policy.md`.
+- **Regression benchmarking** — compare p95 and query count against a stored baseline in CI so performance regressions surface as failures, not incidents.
+
 ## Process
 
 1. Profile in **production-like conditions** with **realistic data volume** — a bug invisible on 10 rows dominates at 200.

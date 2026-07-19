@@ -30,7 +30,19 @@ Lazy builders (`filter`, `exclude`, `values`, `annotate`, …) have **no** async
 
 - Don't `await sync_to_async(Model.objects.all)()` and then iterate — the queryset is lazy, so iteration happens back in async context and raises. Use `async for x in qs` or `[x async for x in qs]`.
 - Keep `thread_sensitive=True` (the default) when wrapping ORM work, so it runs in the correct thread.
+- **Thread-pool exhaustion.** Each `sync_to_async`-wrapped call runs on a bounded thread pool; wrapping *many* sync/ORM calls (e.g. a per-row loop) saturates it and requests queue behind it — throughput collapses. Batch ORM work into fewer calls and prefer the native async ORM methods over per-item `sync_to_async`.
 - **Transactions don't work in async mode.** Write transactional logic as one **sync** function wrapped in `transaction.atomic()` and call it via `sync_to_async(fn)()` — don't try to `async with transaction.atomic()`.
+
+## Concurrent I/O with `asyncio.gather`
+
+Where async genuinely wins is fanning out independent I/O. Await calls together, not in sequence:
+
+```python
+import asyncio
+a, b, c = await asyncio.gather(fetch_a(), fetch_b(), fetch_c())  # total ≈ slowest call, not the sum
+```
+
+This is the payoff case: many concurrent external calls, streaming, websockets. A plain CRUD view doing two ORM queries gets nothing from async and keeps the sync/async-boundary risk — leave it sync under WSGI.
 
 ## `CONN_MAX_AGE` & persistent connections
 
@@ -64,7 +76,13 @@ Total connections ≈ `workers × (pool max_size or 1)`. Keep that sum comfortab
 
 ## PgBouncer / external pooling
 
-For large fleets, **PgBouncer** in transaction-pooling mode centralizes connections across many app instances. Tradeoff: transaction pooling disallows **prepared statements, advisory locks, and session-scoped temp tables**. Rule of thumb: native pool for most apps; PgBouncer at scale. (Celery 5.1+ auto-closes the Django connection pool in workers.)
+For large fleets, **PgBouncer** centralizes connections across many app instances. Pick the mode by what it breaks:
+
+- **Session** — one server connection per client session; safe for everything (prepared statements, `LISTEN/NOTIFY`, session advisory locks, `SET`, temp tables) but least multiplexing.
+- **Transaction** (the productive default) — server bound only per transaction. Breaks session-scoped features: session-level `SET`/`search_path` (use `SET LOCAL`), `LISTEN/NOTIFY`, **session-level advisory locks** (acquired on one backend, released on another → they leak), session temp tables, and `WITH HOLD` cursors. Protocol-level **prepared statements** were broken here until **PgBouncer 1.21** added `max_prepared_statements` (default `0`/off). Most of these fail silently, not loudly.
+- **Statement** — server released after every statement; multi-statement transactions are forbidden. Too aggressive for normal apps.
+
+Django's server-side cursors (`.iterator()`) break under transaction pooling unless you set `DISABLE_SERVER_SIDE_CURSORS = True`. Rule of thumb: native pool for most apps; PgBouncer at scale. (Celery 5.1+ auto-closes the Django connection pool in workers.)
 
 ## Security note
 

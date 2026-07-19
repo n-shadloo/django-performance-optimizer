@@ -25,6 +25,7 @@ Every middleware runs on **every request**, and order matters. Remove middleware
 - Prefer **targeted** `transaction.atomic()` around only the writes that need it.
 - Django 6.0 allows `@atomic` (as a decorator) on class-based views.
 - Keep transactions **short**: do slow or external work (HTTP calls, emails) **outside** the transaction, and enqueue background tasks via `transaction.on_commit(...)` so they don't fire before commit.
+- For row locking, `select_for_update`/`skip_locked`, isolation levels, and optimistic vs pessimistic concurrency, see `references/concurrency-and-locking.md`.
 
 ## Signals overhead
 
@@ -43,6 +44,7 @@ Synchronous signal receivers run **inline** within the triggering operation. A `
 - `CACHES` — see `caching.md`.
 - `DATABASES` `OPTIONS` — pool, statement timeout, SSL.
 - **`DEBUG = False` in production, always.** `DEBUG=True` stores every SQL query in memory for the life of the process (an unbounded memory leak) and is also a security disclosure risk — defer the security angle to `secure-code-auditor`, but the performance reason alone is disqualifying.
-- `DATA_UPLOAD_MAX_MEMORY_SIZE` / `DATA_UPLOAD_MAX_NUMBER_FIELDS` — bound request parsing cost.
+- `DATA_UPLOAD_MAX_MEMORY_SIZE` / `DATA_UPLOAD_MAX_NUMBER_FIELDS` — bound request parsing cost. Note **CVE-2026-5766** (LOW; fixed Django 6.0.5 / 5.2.14, 5 May 2026): an ASGI request with a missing/understated `Content-Length` could bypass `FILE_UPLOAD_MAX_MEMORY_SIZE` and load large files into memory (a memory DoS) — target patched releases and enforce a body-size limit at the web server (e.g. nginx `client_max_body_size`); defer the security judgment to `secure-code-auditor`.
+- Load-shedding timeouts (`statement_timeout`, `lock_timeout`, server request timeouts) — see `references/rate-limiting-and-backpressure.md`.
 - Session backend — cache or cache-backed-db rather than pure db for hot session access.
 - `USE_TZ` — keep timezone handling in the DB where possible.

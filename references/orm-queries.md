@@ -39,6 +39,8 @@ Author.objects.prefetch_related("books")        # author.books.all() is free
 
 Combine them: `Book.objects.select_related("author").prefetch_related("tags")`.
 
+**Django 6.1 (beta; expected Aug 2026, not shipped):** `QuerySet.fetch_mode(FETCH_PEERS)` will fetch a missing related field for every instance in the queryset on first access — an on-demand prefetch that collapses many N+1s to two queries without a manual prefetch list; `fetch_mode(RAISE)` raises `FieldFetchBlocked` on any unprefetched related access, a hard guard for hot paths. Until 6.1 ships, use explicit `select_related`/`prefetch_related`.
+
 ## `Prefetch` objects
 
 Use `Prefetch` to filter or optimize the prefetched queryset, land it on a custom attribute, or nest a `select_related`:
@@ -122,11 +124,17 @@ One statement instead of a loop of `.save()`:
 ```python
 Book.objects.bulk_create(books, batch_size=500)
 Book.objects.bulk_update(books, ["price", "stock"], batch_size=500)
+Book.objects.bulk_create(                                     # upsert: INSERT … ON CONFLICT DO UPDATE
+    books, update_conflicts=True, unique_fields=["isbn"],
+    update_fields=["price", "stock"], batch_size=500,
+)
 Book.objects.filter(discontinued=True).update(active=False)   # single UPDATE
 Book.objects.filter(active=False).delete()                    # single DELETE
 ```
 
-Use `batch_size` to bound statement size. **Version note:** Django 6.0.1 (6 Jan 2026) fixed a bug where `bulk_create()` on PostgreSQL silently **truncated** data exceeding a field's `max_length` — target patched releases (≥ 6.0.1, ≥ 5.2.x current). `bulk_create`/`bulk_update` skip `save()` and do not send `pre_save`/`post_save` signals — validate explicitly if needed (defer validation-correctness judgment to `secure-code-auditor`).
+Use `batch_size` to bound statement size. On PostgreSQL, `update_conflicts=True` (with `unique_fields` + `update_fields`) upserts in one statement; `ignore_conflicts=True` maps to `DO NOTHING` but leaves PKs unset on the returned objects. **Version note:** Django 6.0.1 (6 Jan 2026) fixed a bug where `bulk_create()` on PostgreSQL silently **truncated** data exceeding a field's `max_length` — target patched releases (≥ 6.0.1, ≥ 5.2.10). The fix (ticket #33647) covers the shared bulk casted-`CASE` path, so an oversized value now raises `DataError` instead of truncating. `bulk_create`/`bulk_update` skip `save()` and do not send `pre_save`/`post_save` signals — validate explicitly if needed (defer validation-correctness judgment to `secure-code-auditor`).
+
+**Django 6.1 (beta; expected Aug 2026, not shipped):** `ForeignKey(on_delete=DB_CASCADE)` (also `DB_SET_NULL` / `DB_SET_DEFAULT`) will push cascade deletes into the SQL `ON DELETE` clause instead of loading objects into Python first — cheaper for large cascades — but `DB_CASCADE` won't fire `pre_delete`/`post_delete` signals.
 
 ## Avoiding queries in loops — the cardinal rule
 
@@ -173,6 +181,8 @@ class Book(models.Model):
 - **Partial/conditional indexes** (`condition=Q(...)`) index only matching rows — smaller and cheaper when queries always filter the same way.
 - **Functional and covering indexes** where the backend supports them.
 - Always index the fields a cursor-paginator orders by (see `serializers-drf.md`).
+
+For advanced index types (covering `include=`, BRIN, functional, deeper partial), text search (trigram, full-text), `JSONField` GIN indexing, finding offenders with `pg_stat_statements`, and why the planner ignores an index, see `references/indexing-and-search.md`.
 
 ## `explain()`
 

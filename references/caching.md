@@ -57,6 +57,26 @@ Prefer built-in backends. Configure via `CACHES`:
 
 Redis vs Memcached: comparable raw speed; Redis has richer features (persistence, sessions, pub/sub, data structures), so it's usually the better single choice unless you're already on Memcached. Tune `OPTIONS`, `TIMEOUT`, `CULL_FREQUENCY`, `MAX_ENTRIES`.
 
+## Multi-tier architecture
+
+Beyond Django's cache *levels* (above), think in *tiers* by locality — each trades consistency for latency and reach:
+
+- **In-process (`LocMemCache`)** — nanoseconds, per-worker, not shared; can go stale across workers. Good for tiny, hot, read-only lookups within a process.
+- **Redis / Memcached** — sub-millisecond, shared across workers and hosts. The default shared tier.
+- **CDN / edge** — milliseconds, globally shared; for anonymous responses only.
+
+Patterns, named:
+
+- **Cache-aside (lazy)** — read cache → on miss, read DB and populate. The default; use `get_or_set` to make the miss race-safe (above) and guard hot keys against stampede (below).
+- **Write-through** — write cache and DB together; reads never stale, writes slower.
+- **Write-behind** — write cache, flush to DB asynchronously; fastest writes, risk of loss if the cache dies first. Reserve for loss-tolerant counters/metrics.
+
+**Redis as cache vs datastore.** As a cache, set `maxmemory` + an eviction policy (`allkeys-lru`) and treat entries as disposable. As a primary datastore you must enable persistence (AOF/RDB) and must **not** evict live data — a different operational posture; don't quietly slide from one into the other.
+
+**CDN caching.** Set `Cache-Control` with `s-maxage` (shared-cache TTL, separate from the browser's `max-age`), get `Vary` right, and use surrogate keys (`Surrogate-Control`) for tag-based edge invalidation. Only edge-cache non-personalized responses — never authenticated/per-user content (see the security note).
+
+**Django 6.1 (beta; not shipped):** cache-key generation changes for vary-header cases (`cache_page`, `UpdateCacheMiddleware`, `make_template_fragment_key`) — expect a cold cache on upgrade.
+
 ## Invalidation strategy — the hard part
 
 - **Time-based TTL** for public, read-mostly data where slight staleness is acceptable.
@@ -77,7 +97,9 @@ When a hot key expires under load, every concurrent request misses and recompute
 ## Security note (defer to `secure-code-auditor`)
 
 - **Never** cache per-user or authenticated content under a shared key — a classic data-leak. Mind `Vary` headers and cookies.
-- Note the real fixed Django cache CVEs, both fixed in **Django 6.0.5 and 5.2.14 (5 May 2026)** — target patched releases:
-  - **CVE-2026-35192** (LOW) — session fixation via public cached pages when `SESSION_SAVE_EVERY_REQUEST=True`.
-  - **CVE-2026-6907** — private-data exposure via incorrect `Vary: *` handling in `UpdateCacheMiddleware`.
+- Note the real fixed Django cache/cookie CVEs — target patched releases (≥ 6.0.7 / ≥ 5.2.16):
+  - **CVE-2026-35192** (LOW; fixed 6.0.5 / 5.2.14, 5 May 2026) — session fixation via public cached pages when `SESSION_SAVE_EVERY_REQUEST=True`.
+  - **CVE-2026-6907** (LOW; fixed 6.0.5 / 5.2.14, 5 May 2026) — private-data exposure via incorrect `Vary: *` handling in `UpdateCacheMiddleware`.
+  - **6.0.6 / 5.2.15 (3 Jun 2026)** — `cache_page`/`UpdateCacheMiddleware` no longer cache responses marked with mixed-case `Private` `Cache-Control`; also a `get_signed_cookie()` salt-namespace-collision fix.
+  - **6.0.7 / 5.2.16 (7 Jul 2026)** — fixed a `Set-Cookie` cache exposure where a response setting a cookie while varying on `Cookie` was unprotected when the incoming request already carried an unrelated cookie.
 - Defer the final security judgment on any cache key/scope decision to `secure-code-auditor`.
